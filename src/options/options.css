@@ -1,0 +1,28 @@
+@font-face {
+  font-family: "Ubuntu Sans";
+  src: url(chrome-extension://__MSG_@@extension_id__/assets/UbuntuSans-VariableFont.ttf) format("truetype-variations");
+  font-weight: 100 900;       /* full variable range */
+  font-stretch: 75% 125%;
+  font-display: swap;
+}
+
+body {
+  font-family: "Ubuntu Sans", system-ui, sans-serif;
+  margin: 1rem auto;
+  max-width: 640px;
+}
+
+fieldset {
+  margin-bottom: 1.25rem;
+  border: 1px solid #ccc;
+  padding: 0.75rem;
+}
+
+label {
+  display: block;
+  margin: 0.35rem 0;
+}
+
+#status {
+  font-weight: bold;
+}

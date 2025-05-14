@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="options.css">
+  <title>CleanUp LinkedIn – Options</title>
+</head>
+<body>
+<img src="../assets/logo.svg" width="24" height="24" alt="CleanUp LinkedIn logo">
+  <h2>CleanUp LinkedIn – Options</h2>
+
+  <fieldset>
+    <legend>Custom clean-up rules</legend>
+    <label><input type="checkbox" data-rule="promoted"> Hide ‘Promoted’ posts</label>
+    <label><input type="checkbox" data-rule="jobs"> Hide ‘Jobs recommended for you’</label>
+    <label><input type="checkbox" data-rule="addToFeed"> Hide ‘Add to your feed’ suggestions</label>
+    <label><input type="checkbox" data-rule="events"> Hide ‘Events recommended for you’</label>
+    <label><input type="checkbox" data-rule="fresh"> Hide ‘Fresh Perspectives’</label>
+    <label><input type="checkbox" data-rule="hiring"> Hide ‘Are you hiring?’ box</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Layout tweaks</legend>
+    <label><input type="checkbox" id="widenFeedOpt"> Widen feed column</label>
+    <label><input type="checkbox" id="hideLeftRailOpt"> Hide left sidebar</label>
+  </fieldset>
+
+  <p>Status: <span id="status">Saved</span></p>
+
+  <script src="options.js"></script>
+</body>
+</html>
