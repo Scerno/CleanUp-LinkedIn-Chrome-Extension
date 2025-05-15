@@ -5,27 +5,143 @@
   <link rel="stylesheet" href="options.css">
   <title>CleanUp LinkedIn – Options</title>
 </head>
+
 <body>
-<img src="../assets/logo.svg" width="24" height="24" alt="CleanUp LinkedIn logo">
-  <h2>CleanUp LinkedIn – Options</h2>
+  <!--‑‑‑ Header ‑‑‑-->
+  <header>
+    <img src="../assets/logo.svg" width="28" height="28" alt="" role="presentation">
+    <h1>CleanUp LinkedIn – Options</h1>
+  </header>
 
-  <fieldset>
-    <legend>Custom clean-up rules</legend>
-    <label><input type="checkbox" data-rule="promoted"> Hide ‘Promoted’ posts</label>
-    <label><input type="checkbox" data-rule="jobs"> Hide ‘Jobs recommended for you’</label>
-    <label><input type="checkbox" data-rule="addToFeed"> Hide ‘Add to your feed’ suggestions</label>
-    <label><input type="checkbox" data-rule="events"> Hide ‘Events recommended for you’</label>
-    <label><input type="checkbox" data-rule="fresh"> Hide ‘Fresh Perspectives’</label>
-    <label><input type="checkbox" data-rule="hiring"> Hide ‘Are you hiring?’ box</label>
-  </fieldset>
+  <main>
 
-  <fieldset>
-    <legend>Layout tweaks</legend>
-    <label><input type="checkbox" id="widenFeedOpt"> Widen feed column</label>
-    <label><input type="checkbox" id="hideLeftRailOpt"> Hide left sidebar</label>
-  </fieldset>
+    <!--‑‑‑ Section 1 – Clean‑Up level ‑‑‑-->
+    <section class="card" id="cleanupSection">
+      <h2>Clean‑Up level</h2>
 
-  <p>Status: <span id="status">Saved</span></p>
+      <fieldset>
+        <legend class="visually-hidden">Choose a clean‑up level</legend>
+
+        <label class="has-help">
+          <input type="radio" name="cleanupLevel" value="basic">
+          Basic
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">Removes Promoted posts, ads and Fresh Perspectives.</span>
+        </label>
+
+        <label class="has-help">
+          <input type="radio" name="cleanupLevel" value="extreme">
+          Extreme
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">Removes everything except posts from people you follow.</span>
+        </label>
+
+        <label class="has-help">
+          <input type="radio" name="cleanupLevel" value="free">
+          Free Space
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">Leaves the page blank – perfect for drafting.</span>
+        </label>
+
+        <label class="has-help">
+          <input type="radio" name="cleanupLevel" value="custom">
+          Custom
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">Use the tick‑boxes below to choose precisely what to hide.</span>
+        </label>
+      </fieldset>
+
+      <!--‑‑‑ Custom rule list (only visible when “Custom” selected) ‑‑‑-->
+      <div id="customRules" class="hidden">
+        <h3>Custom rules</h3>
+
+        <label><input type="checkbox" data-rule="promoted"> Hide ‘Promoted’ posts</label>
+        <label><input type="checkbox" data-rule="jobs"> Hide ‘Jobs recommended for you’</label>
+        <label><input type="checkbox" data-rule="addToFeed"> Hide ‘Add to your feed’ cards</label>
+        <label><input type="checkbox" data-rule="events"> Hide ‘Events recommended for you’</label>
+        <label><input type="checkbox" data-rule="fresh"> Hide ‘Fresh Perspectives’</label>
+        <label><input type="checkbox" data-rule="hiring"> Hide ‘Are you hiring?’ box</label>
+      </div>
+    </section>
+
+    <!--‑‑‑ Section 2 – Layout tweaks ‑‑‑-->
+    <section class="card" id="layoutSection">
+      <h2>Layout</h2>
+
+      <label class="has-help">
+        <input type="checkbox" id="hideLeft">
+        Hide left sidebar
+        <img class="helpTrigger" src="../assets/qm.svg" alt="">
+        <span class="helpText">Removes People/Groups suggestions on the left.</span>
+      </label>
+
+      <label class="has-help">
+        <input type="checkbox" id="hideRight">
+        Hide right sidebar
+        <img class="helpTrigger" src="../assets/qm.svg" alt="">
+        <span class="helpText">Hides ads and “Who to follow” panels on the right.</span>
+      </label>
+
+      <h3>Feed width</h3>
+
+      <fieldset>
+        <legend class="visually-hidden">Feed width options</legend>
+
+        <label class="has-help">
+          <input type="radio" name="feedWidth" value="standard">
+          Standard
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">LinkedIn’s default column.</span>
+        </label>
+
+        <label class="has-help">
+          <input type="radio" name="feedWidth" value="full">
+          Full width
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">Post column fills the page.</span>
+        </label>
+
+        <label class="has-help">
+          <input type="radio" name="feedWidth" value="custom">
+          Custom
+          <img class="helpTrigger" src="../assets/qm.svg" alt="">
+          <span class="helpText">Specify an exact pixel value below.</span>
+        </label>
+      </fieldset>
+
+      <div class="stepper">
+        <label for="feedWidthValue">Width:</label>
+        <button class="step" data-target="feedWidthValue" data-step="-50">-</button>
+        <input type="number" id="feedWidthValue" min="300" max="2000" step="50">
+        <button class="step" data-target="feedWidthValue" data-step="50">+</button>
+        <span class="unit">px</span>
+      </div>
+
+      <h3>Feed columns</h3>
+
+      <div class="stepper">
+        <label for="columnCount">Columns:</label>
+        <button class="step" data-target="columnCount" data-step="-1">-</button>
+        <input type="number" id="columnCount" min="1" max="4" step="1">
+        <button class="step" data-target="columnCount" data-step="1">+</button>
+      </div>
+    </section>
+
+    <!--‑‑‑ Section 3 – About / links ‑‑‑-->
+    <section class="card" id="aboutSection">
+      <h2>About</h2>
+      <p>⭐ If you enjoy CleanUp LinkedIn please consider leaving a review in the Chrome web store.</p>
+      <a class="btn" href="https://chrome.google.com/webstore/detail/5d-clean-up-linkedin/jpnappbebbldpfefhgfphjpjfcdkonac" target="_blank">
+        Chrome Web Store
+      </a>
+      <p class="version">Version <span id="version"></span></p>
+    </section>
+
+  </main>
+
+  <footer>
+    <button id="backToPopup">Close</button>
+  </footer>
 
   <script src="options.js"></script>
 </body>
