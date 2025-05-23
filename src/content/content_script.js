@@ -1,226 +1,291 @@
-/*  CleanUp LinkedIn – content_script.js            rev 4.1.1
-    · wait for full window.load before touching the DOM
-    · width tweaks, side-rail toggles
-    · live multi-column feed (flex-column approach)
------------------------------------------------------------------ */
+/*  CleanUp LinkedIn – content_script.js            rev 4.1.2
+    · waits for window.load
+    · multi-column feed that co-exists with LinkedIn’s infinite scroll
+------------------------------------------------------------------ */
 
 (() => {
-  /* ── selectors ─────────────────────────────────────────────── */
-  const S = {
-    leftRail  : 'aside.scaffold-layout__aside',
-    rightRail : 'aside.scaffold-layout__aside--right, aside#right-rail',
-    frame     : '.scaffold-layout__inner.scaffold-layout-container',
-    feedRoot  : 'main div.scaffold-finite-scroll__content'
-  };
+	/* ======================================================================
+		I N I T I A L    S E T U P
+	=================================================================== */
+	
+	/* ── special log functions ───────────────────────────────────────────── */
+	function log(str, type="log") {
+		str = "CleanUp Linkedin: "+str;
+		console.log(str);
+	};
+	function info(obj, type="log") {
+		console.log("CleanUp Linkedin object");
+		console.info(obj);
+	};
+	
+	/* ── selectors we reuse ───────────────────────────────────────────── */
+	const S = {
+		leftRail  : 'div.scaffold-layout__sidebar',
+		rightRail : 'aside.scaffold-layout__aside',
+		frame     : '.scaffold-layout__inner.scaffold-layout-container',
+		innerFrame: '.scaffold-layout__row.scaffold-layout__content',
+		feedRoot  : 'main div.scaffold-finite-scroll__content'
+	};
 
-  /* ── default option values ─────────────────────────────────── */
-  const DFLT = {
-    enableCleanup  : true,
-    hideLeft       : false,
-    hideRight      : false,
-    feedWidth      : 'standard',          // 'standard' | 'full' | 'custom'
-    feedWidthValue : 960,                 // px if feedWidth === 'custom'
-    columnCount    : 1                    // 1 ⇒ LinkedIn default
-  };
+	/* ── default option values ─────────────────────────────────────────── */
+	const DFLT = {
+		enableCleanup  : true,
+		hideLeft       : false,
+		hideRight      : false,
+		feedWidth      : 'standard',          // 'standard' | 'full' | 'custom'
+		feedWidthValue : 960,                 // px for “custom”
+		columnCount    : 1                    // 1 ⇒ LinkedIn default
+	};
 
-  /* ── little helpers ────────────────────────────────────────── */
-  function domReady () {
-    /* wait until frame + feed exist – they’re sometimes injected late */
-    return new Promise(resolve => {
-      const tick = () =>
-        document.querySelector(S.frame) && document.querySelector(S.feedRoot)
-          ? resolve()
-          : setTimeout(tick, 120);
-      tick();
-    });
-  }
+	/* ── wait until the two key containers exist ──────────────────────── */
+	const domReady = () => new Promise(resolve => {
+		const tick = () =>
+		  document.querySelector(S.frame) && document.querySelector(S.feedRoot)
+			? resolve()
+			: setTimeout(tick, 120);
+		tick();
+	});
+	
+	/* called from applySettings() ---------------------------------------*/
+	function setRail(sel, hide, cls) {
+		const el           = document.querySelector(sel);
+		const innerFrame   = document.querySelector(S.innerFrame);
+		if (!el || !innerFrame) return;
 
-  function setRail (selector, hide) {
-    const el = document.querySelector(selector);
-    if (el) el.style.display = hide ? 'none' : '';
-  }
+		el.style.display = hide ? 'none' : '';
+		toggleClass(innerFrame, cls, hide);   // add/remove .cleanup--no-left | --no-right
+	}
 
-  /* ------------------------------------------------------------------ */
-  /*        C O L U M N   L A Y O U T                                   */
-  /* ------------------------------------------------------------------ */
-  const CARD_SELECTOR   = 'div[data-view-name="feed-full-update"]';
-  const MARKER_SELECTOR = 'h2.visually-hidden, h2.feed-skip-link__container';
+	/* ======================================================================
+		H E L P E R S
+	=================================================================== */
+	
+	/* ── helper grid-collapse CSS ────────────────────────────────────────── */
+	const gridFixStyle = (() => {
+		const tag = document.createElement('style');
+		tag.id = 'cleanup-grid-fix';
+		tag.textContent = `
+		/* hide LEFT rail → collapse grid to 2 cols (main + right-aside) */
+		.scaffold-layout--reflow 
+		.scaffold-layout__content--sidebar-main-aside.cleanup--no-left {
+		  grid-template-areas: "main aside";
+		  grid-template-columns:
+			   var(--scaffold-layout-main-width)
+			   var(--scaffold-layout-aside-width);
+		}
 
-  const COL_GAP  = 12;
-  const ROW_GAP  = 12;
-  const STYLE_ID = 'lfm-column-css';
+		/* hide RIGHT rail → collapse grid to 2 cols (left-sidebar + main) */
+		.scaffold-layout--reflow 
+		.scaffold-layout__content--sidebar-main-aside.cleanup--no-right {
+		  grid-template-areas: "sidebar main";
+		  grid-template-columns:
+			   var(--scaffold-layout-sidebar-narrow-width)
+			   var(--scaffold-layout-main-width);
+		}
 
-  let currentColCount = 0;
-  let colObserver     = null;
-  let nextIndex       = 0;
+		/* hide BOTH rails → single, full-width main column */
+		.scaffold-layout--reflow 
+		.scaffold-layout__content--sidebar-main-aside.cleanup--no-left.cleanup--no-right {
+		  grid-template-areas: "main";
+		  grid-template-columns: 1fr;
+		}
+		`;
+		document.head.appendChild(tag);
+		return tag;
+	})();
+	
+	
+	function toggleClass(el, cls, on) {
+		on ? el.classList.add(cls) : el.classList.remove(cls);
+	}
 
-  function injectColumnCss (cols) {
-    let tag = document.getElementById(STYLE_ID);
-    if (!tag) {
-      tag = document.createElement('style');
-      tag.id = STYLE_ID;
-      document.head.appendChild(tag);
+	
+	
+	
+	/* ======================================================================
+		C O L U M N   L A Y O U T
+	=================================================================== */
+	const CARD_SELECTOR   = 'div';
+	const MARKER_SELECTOR = 'h2.feed-skip-link__container';
+
+	const COL_GAP  = 12;
+	const ROW_GAP  = 12;
+	const STYLE_ID = 'lfm-column-css';
+
+	let currentCols   = 0;
+	let colObserver   = null;
+	let nextIndex     = 0;
+
+	function injectColumnCss(cols) {
+		let tag = document.getElementById(STYLE_ID);
+		if (!tag) {
+			tag = document.createElement('style');
+			tag.id = STYLE_ID;
+			document.head.appendChild(tag);
+		}
+		tag.textContent = `
+			.lfm-col-wrapper{
+			display:flex;
+			gap:${COL_GAP}px;
+			width:100%;
+			box-sizing:border-box;
+			}
+			.lfm-col{
+			flex:1 1 calc((100% - ${(cols - 1) * COL_GAP}px)/${cols});
+			display:flex;
+			flex-direction:column;
+			row-gap:${ROW_GAP}px;
+			min-width:0;
+			}`;
+	}
+
+	function teardownColumns() {
+		if (!currentCols) return;
+
+		const feed = document.querySelector(S.feedRoot);
+		const wrap = feed?.querySelector('.lfm-col-wrapper');
+
+		if (wrap) {
+			/* move everything back in visual order */
+			[...wrap.querySelectorAll(`${MARKER_SELECTOR},${CARD_SELECTOR}`)]
+			.forEach(node => feed.insertBefore(node, wrap));
+			wrap.remove();
+		}
+		document.getElementById(STYLE_ID)?.remove();
+		colObserver?.disconnect();
+
+		currentCols = 0;
+		nextIndex   = 0;
+	}
+
+/******************************************************************
+*  BUILD COLUMNS  – keeps  <div> + following <h2> together
+******************************************************************/
+function buildColumns(colCount) {
+  const feed = document.querySelector(S.feedRoot);
+  if (!feed) return;
+
+  injectColumnCss(colCount);
+
+  /* 1 ▸ wrapper & empty columns */
+  const wrapper = document.createElement('div');
+  wrapper.className = 'lfm-col-wrapper';
+
+  const cols = Array.from({ length: colCount }, () => {
+    const col = document.createElement('div');
+    col.className = 'lfm-col';
+    wrapper.appendChild(col);
+    return col;
+  });
+
+  /* 2 ▸ migrate EXISTING children, keeping order */
+  let colPtr   = 0;         // next column for a CARD
+  let lastCol  = 0;         // column of the most-recent CARD
+
+  Array.from(feed.childNodes).forEach(node => {
+    if (!(node instanceof HTMLElement)) return;
+
+    if (node.matches(CARD_SELECTOR)) {       // visible post card
+      cols[colPtr].appendChild(node);
+      lastCol = colPtr;
+      colPtr  = (colPtr + 1) % colCount;     // advance for next card
     }
-    tag.textContent = `
-      .lfm-col-wrapper{
-        display:flex;
-        gap:${COL_GAP}px;
-        width:100%;
-        box-sizing:border-box;
-      }
-      .lfm-col{
-        flex:1 1 calc((100% - ${(cols - 1) * COL_GAP}px)/${cols});
-        display:flex;
-        flex-direction:column;
-        row-gap:${ROW_GAP}px;
-        min-width:0;
-      }`;
-  }
-
-  function teardownColumns () {
-    if (!currentColCount) return;
-
-    const feed   = document.querySelector(S.feedRoot);
-    const wrapEl = feed?.querySelector('.lfm-col-wrapper');
-
-    if (wrapEl) {
-      [...wrapEl.querySelectorAll(`${MARKER_SELECTOR},${CARD_SELECTOR}`)]
-        .forEach(node => feed.appendChild(node));
-      wrapEl.remove();
+    else if (node.matches(MARKER_SELECTOR)) { // skip-link heading
+      cols[lastCol].appendChild(node);        // stay in same column
     }
-    document.getElementById(STYLE_ID)?.remove();
-    colObserver?.disconnect();
+  });
 
-    currentColCount = 0;
-    nextIndex       = 0;
-  }
+  nextIndex = colPtr;       // how many CARDs we placed
+  feed.prepend(wrapper);
 
-  function buildColumns (colCount) {
-    const feed = document.querySelector(S.feedRoot);
-    if (!feed) return;
+  /* 3 ▸ observe FUTURE additions (infinite scroll) */
+  colObserver = new MutationObserver(muts => {
+    muts.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if (!(node instanceof HTMLElement)) return;
+        if (node.parentElement !== feed)    return;
 
-    injectColumnCss(colCount);
-
-    /* 1. wrapper + columns */
-    const wrapper = document.createElement('div');
-    wrapper.className = 'lfm-col-wrapper';
-
-    const cols = Array.from({ length: colCount }, () => {
-      const c = document.createElement('div');
-      c.className = 'lfm-col';
-      wrapper.appendChild(c);
-      return c;
-    });
-
-    /* 2. migrate current children into columns */
-    const nodes = Array.from(feed.childNodes);
-    let logical = 0;
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      if (!(n instanceof HTMLElement)) continue;
-
-      if (n.matches(MARKER_SELECTOR)) {
-        const card = nodes[i + 1]?.matches?.(CARD_SELECTOR) ? nodes[i + 1] : null;
-        cols[logical % colCount].appendChild(n);
-        if (card) cols[logical % colCount].appendChild(card);
-        logical++; i++;
-      } else if (n.matches(CARD_SELECTOR)) {
-        cols[logical % colCount].appendChild(n);
-        logical++;
-      }
-    }
-    nextIndex = logical;
-
-    feed.innerHTML = '';
-    feed.appendChild(wrapper);
-
-    /* 3. observe future infinite-scroll inserts */
-    colObserver = new MutationObserver(muts => {
-      muts.forEach(m => {
-        m.addedNodes.forEach(node => {
-          if (!(node instanceof HTMLElement)) return;
-
-          if (node.matches(MARKER_SELECTOR)) {
-            const dest = cols[nextIndex % colCount];
-            dest.appendChild(node);
-            nextIndex++;
-
-            const card = node.nextElementSibling;
-            if (card?.matches?.(CARD_SELECTOR)) {
-              dest.appendChild(card);
-              nextIndex++;
-            }
-          } else if (node.matches(CARD_SELECTOR)) {
-            const dest = cols[nextIndex % colCount];
-            dest.appendChild(node);
-            nextIndex++;
-          }
-        });
+        if (node.matches(CARD_SELECTOR)) {          // new card
+          const dest = cols[nextIndex % colCount];
+          dest.appendChild(node);
+          lastCol = nextIndex % colCount;
+          nextIndex++;
+        }
+        else if (node.matches(MARKER_SELECTOR)) {   // its heading
+          cols[lastCol].appendChild(node);
+        }
       });
     });
-    colObserver.observe(feed, { childList: true, subtree: true });
+  });
+  colObserver.observe(feed, { childList: true });
 
-    currentColCount = colCount;
-  }
+  currentCols = colCount;
+}
 
-  function applyColumns (count) {
-    if (count < 2) { teardownColumns(); return; }
-    if (count !== currentColCount) {
-      teardownColumns();
-      buildColumns(count);
-    }
-  }
 
-  /* ------------------------------------------------------------------ */
-  /*        W I D T H   O V E R R I D E                                 */
-  /* ------------------------------------------------------------------ */
-  const widthStyle = (() => {
-    const tag = document.createElement('style');
-    tag.id = 'cleanup-width-style';
-    document.head.appendChild(tag);
-    return tag;
-  })();
 
-  function applyWidth (mode, px) {
-    if (mode === 'full') {
-      widthStyle.textContent = `${S.frame}{max-width:none!important;width:100%!important;}`;
-    } else if (mode === 'custom') {
-      widthStyle.textContent = `${S.frame}{max-width:${px}px!important;width:${px}px!important;}`;
-    } else {
-      widthStyle.textContent = '';              // 'standard'
-    }
-  }
+	function applyColumns(count) {
+		if (count < 2) { teardownColumns(); return; }
+		if (count !== currentCols) {
+			teardownColumns();
+			buildColumns(count);
+		}
+	}
 
-  /* ------------------------------------------------------------------ */
-  /*        A P P L Y   S E T T I N G S                                 */
-  /* ------------------------------------------------------------------ */
-  function applySettings (cfg) {
-    if (!cfg.enableCleanup) return;
+	/* ======================================================================
+		W I D T H   O V E R R I D E
+	=================================================================== */
+	const widthStyle = (() => {
+		const tag = document.createElement('style');
+		tag.id = 'cleanup-width-style';
+		document.head.appendChild(tag);
+		return tag;
+	})();
 
-    setRail(S.leftRail , cfg.hideLeft);
-    setRail(S.rightRail, cfg.hideRight);
+	const applyWidth = (mode, px) => {
+		if (mode === 'full') {
+			widthStyle.textContent = `${S.frame}{max-width:none!important;width:100%!important;}
+				${S.innerFrame} main{max-width:100vw;}`;
+		} else if (mode === 'custom') {
+			widthStyle.textContent = `${S.frame}{max-width:${px}px!important;width:${px}px!important;}
+				${S.innerFrame} main{max-width:${px}px;}`;
+		} else {
+			widthStyle.textContent = ''; // standard
+		}
+	};
 
-    applyWidth(cfg.feedWidth, cfg.feedWidthValue);
-    applyColumns(cfg.columnCount);
-  }
+	/* ======================================================================
+		A P P L Y   S E T T I N G S
+	=================================================================== */
+	function applySettings(cfg) {
+		if (!cfg.enableCleanup) return;
 
-  /* ------------------------------------------------------------------ */
-  /*        I N I T  – wait for window.load first                       */
-  /* ------------------------------------------------------------------ */
-  function start() {
-    domReady().then(() => {
-      chrome.storage.sync.get(DFLT, applySettings);
+		setRail(S.leftRail , cfg.hideLeft , 'cleanup--no-left');
+		setRail(S.rightRail, cfg.hideRight, 'cleanup--no-right');
 
-      chrome.storage.onChanged.addListener((_, area) => {
-        if (area !== 'sync') return;
-        chrome.storage.sync.get(DFLT, applySettings);
-      });
-    });
-  }
+		applyWidth  (cfg.feedWidth, cfg.feedWidthValue);
+		applyColumns(cfg.columnCount);
+	}
 
-  if (document.readyState === 'complete') {
-    start();                                // page already fully loaded
-  } else {
-    window.addEventListener('load', start); // run only after window.load
-  }
+	/* ======================================================================
+		I N I T
+	=================================================================== */
+	function start() {
+		domReady().then(() => {
+			chrome.storage.sync.get(DFLT, applySettings);
+
+			chrome.storage.onChanged.addListener((_chg, area) => {
+				if (area !== 'sync') return;
+				chrome.storage.sync.get(DFLT, applySettings);
+			});
+		});
+	}
+
+	/* run only after full page load to avoid LinkedIn race-conditions */
+	document.readyState === 'complete'
+		? start()
+		: window.addEventListener('load', start);
+	
+	
 })();
+
